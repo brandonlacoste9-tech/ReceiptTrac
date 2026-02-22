@@ -73,7 +73,7 @@ Open [http://localhost:3000](http://localhost:3000) to see the app.
 
 ## 🏗️ Tech Stack
 
-- **Framework**: Next.js 15 (App Router)
+- **Framework**: Next.js 16 (App Router)
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS
 - **OCR/AI**: (Placeholder - integrate with Google Vision, AWS Textract, or Azure CV)

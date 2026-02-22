@@ -1,7 +1,9 @@
 'use client'
 
+import { Receipt } from '@/lib/services/receiptService'
+
 interface ReceiptDetailsProps {
-  receipt: any
+  receipt: Receipt
   onNewScan: () => void
 }
 
@@ -12,9 +14,17 @@ export default function ReceiptDetails({ receipt, onNewScan }: ReceiptDetailsPro
         title: 'My Receipt Analysis',
         text: `I'm paying ${receipt.inflationImpact}% more than in 2022! Check out ReceiptAI`,
         url: window.location.origin
-      }).catch(() => {})
+      }).catch(() => {
+        // Silently handle share cancellation or errors
+      })
     } else {
-      alert('Share functionality not available')
+      // Fallback for browsers without Web Share API
+      const shareText = `I'm paying ${receipt.inflationImpact}% more than in 2022! Check out ReceiptAI at ${window.location.origin}`
+      navigator.clipboard.writeText(shareText).then(() => {
+        alert('Share text copied to clipboard!')
+      }).catch(() => {
+        alert('Please share manually: ' + shareText)
+      })
     }
   }
 

@@ -4,13 +4,14 @@ import { useState } from 'react'
 import Link from 'next/link'
 import ReceiptScanner from '@/components/ui/ReceiptScanner'
 import ReceiptDetails from '@/components/ui/ReceiptDetails'
+import { Receipt } from '@/lib/services/receiptService'
 
 export default function ScanPage() {
-  const [scannedReceipt, setScannedReceipt] = useState<any>(null)
+  const [scannedReceipt, setScannedReceipt] = useState<Receipt | null>(null)
   const [scanCount, setScanCount] = useState(0)
   const maxFreeScans = 5
 
-  const handleScanComplete = (receipt: any) => {
+  const handleScanComplete = (receipt: Receipt) => {
     setScannedReceipt(receipt)
     setScanCount(prev => prev + 1)
   }

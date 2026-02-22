@@ -22,7 +22,8 @@ export interface Receipt {
   }>
 }
 
-// Mock data for demonstration
+// DEMO DATA: Mock items for demonstration purposes
+// In production, these would be extracted from actual receipt images via OCR
 const MOCK_ITEMS = [
   { name: 'Organic Eggs (12ct)', price: 8.99, avgPrice: 6.49 },
   { name: 'Whole Milk (1L)', price: 4.29, avgPrice: 3.89 },
@@ -45,14 +46,14 @@ export async function analyzeReceipt(file: File): Promise<Receipt> {
   // Simulate API processing time
   await new Promise(resolve => setTimeout(resolve, 2000))
 
-  // In production, this would:
-  // 1. Upload the image to a storage service
-  // 2. Call OCR API to extract text
+  // PRODUCTION TODO:
+  // 1. Upload the image to a storage service (S3, Cloud Storage, etc.)
+  // 2. Call OCR API to extract text (Google Vision, AWS Textract, Azure CV)
   // 3. Parse the extracted text to identify items and prices
-  // 4. Look up historical prices and regional averages
-  // 5. Calculate inflation impact
-
-  // Generate mock receipt data
+  // 4. Look up historical prices and regional averages from database
+  // 5. Calculate inflation impact based on historical data
+  
+  // DEMO: Generate mock receipt data for demonstration
   const numItems = Math.floor(Math.random() * 4) + 3 // 3-6 items
   const selectedItems = MOCK_ITEMS.sort(() => Math.random() - 0.5).slice(0, numItems)
   

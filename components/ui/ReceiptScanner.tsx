@@ -1,10 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { analyzeReceipt } from '@/lib/services/receiptService'
+import { analyzeReceipt, Receipt } from '@/lib/services/receiptService'
 
 interface ReceiptScannerProps {
-  onScanComplete: (receipt: any) => void
+  onScanComplete: (receipt: Receipt) => void
   canScan: boolean
 }
 
@@ -14,6 +14,7 @@ export default function ReceiptScanner({ onScanComplete, canScan }: ReceiptScann
 
   const handleFileSelect = async (file: File) => {
     if (!canScan) {
+      // TODO: Replace with proper toast notification system in production
       alert('You have reached your free scan limit. Please upgrade to Pro for unlimited scans.')
       return
     }
@@ -24,8 +25,12 @@ export default function ReceiptScanner({ onScanComplete, canScan }: ReceiptScann
       const receipt = await analyzeReceipt(file)
       onScanComplete(receipt)
     } catch (error) {
-      alert('Error processing receipt. Please try again.')
-      console.error(error)
+      // TODO: Implement proper error handling with specific error messages
+      const errorMessage = error instanceof Error 
+        ? `Error processing receipt: ${error.message}. Please try again.`
+        : 'Error processing receipt. Please ensure the image is clear and try again.'
+      alert(errorMessage)
+      console.error('Receipt processing error:', error)
     } finally {
       setIsUploading(false)
     }
