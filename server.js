@@ -40,7 +40,13 @@ app.get('/api/health', (req, res) => {
 
 // Serve static assets in production
 if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, 'client/build')));
+  // Apply rate limiting to static assets as well
+  const staticLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 500, // Higher limit for static assets
+  });
+  
+  app.use(express.static(path.join(__dirname, 'client/build')), staticLimiter);
   
   app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
