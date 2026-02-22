@@ -2,12 +2,38 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const receiptService = require('../services/receiptService');
+const { sampleReceipts } = require('../services/demoData');
 
 // Configure multer for file uploads
 const storage = multer.memoryStorage();
 const upload = multer({ 
   storage: storage,
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+});
+
+/**
+ * POST /api/receipts/load-demo
+ * Load demo receipts for testing
+ */
+router.post('/load-demo', async (req, res) => {
+  try {
+    const userId = req.body.userId || 'demo';
+    
+    // Load demo receipts
+    const loadedReceipts = sampleReceipts.map(receipt => ({
+      ...receipt,
+      userId
+    }));
+    
+    res.json({
+      success: true,
+      message: `Loaded ${loadedReceipts.length} demo receipts`,
+      data: loadedReceipts
+    });
+  } catch (error) {
+    console.error('Load demo error:', error);
+    res.status(500).json({ error: 'Failed to load demo data' });
+  }
 });
 
 /**

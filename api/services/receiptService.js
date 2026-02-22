@@ -4,6 +4,14 @@ const Tesseract = require('tesseract.js');
 let receipts = [];
 
 /**
+ * Load demo receipts
+ */
+function loadDemoReceipts(demoReceipts) {
+  receipts = [...receipts, ...demoReceipts];
+  return receipts;
+}
+
+/**
  * Scan and extract data from receipt image
  */
 async function scanReceipt(imageBuffer, userId) {
@@ -139,5 +147,6 @@ module.exports = {
   scanReceipt,
   getUserReceipts,
   getReceiptById,
-  deleteReceipt
+  deleteReceipt,
+  loadDemoReceipts
 };
