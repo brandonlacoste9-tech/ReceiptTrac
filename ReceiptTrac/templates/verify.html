@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="verify-section">
+    <h2>Vérifier le reçu / Verify Receipt</h2>
+
+    {% if receipt.image_path %}
+    <div class="receipt-image">
+        <img src="{{ receipt.image_path }}" alt="Receipt">
+    </div>
+    {% endif %}
+
+    <form method="POST" action="{{ url_for('save_receipt') }}" class="verify-form">
+        <input type="hidden" name="image_path" value="{{ receipt.image_path }}">
+        <input type="hidden" name="ocr_engine" value="{{ receipt.ocr_engine }}">
+        <input type="hidden" name="confidence" value="{{ receipt.confidence }}">
+
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Marchand / Merchant:</label>
+                <input type="text" name="merchant" value="{{ receipt.merchant }}" required>
+            </div>
+
+            <div class="form-group">
+                <label>Date:</label>
+                <input type="date" name="date" value="{{ receipt.date }}" required>
+            </div>
+
+            <div class="form-group">
+                <label>Catégorie / Category:</label>
+                <select name="category">
+                    <option value="restaurant" {% if receipt.category == 'restaurant' %}selected{% endif %}>Restaurant</option>
+                    <option value="grocery" {% if receipt.category == 'grocery' %}selected{% endif %}>Épicerie/Grocery</option>
+                    <option value="transport" {% if receipt.category == 'transport' %}selected{% endif %}>Transport</option>
+                    <option value="medical" {% if receipt.category == 'medical' %}selected{% endif %}>Medical</option>
+                    <option value="office" {% if receipt.category == 'office' %}selected{% endif %}>Bureau/Office</option>
+                    <option value="entertainment" {% if receipt.category == 'entertainment' %}selected{% endif %}>Divertissement</option>
+                    <option value="other" {% if receipt.category == 'other' %}selected{% endif %}>Autre/Other</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Région / Region:</label>
+                <select name="region">
+                    {% for key, region in regions.items() %}
+                    <option value="{{ key }}" {% if receipt.region == key %}selected{% endif %}>
+                        {{ region['name_fr'] if lang == 'fr' else region['name_en'] }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div class="amount-section">
+            <h3>Montants / Amounts</h3>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Sous-total / Subtotal:</label>
+                    <input type="number" step="0.01" name="subtotal" value="{{ receipt.subtotal or '' }}">
+                </div>
+
+                <div class="form-group">
+                    <label>TPS (5%) GST:</label>
+                    <input type="number" step="0.01" name="tax_gst" value="{{ receipt.tax_gst or '' }}">
+                </div>
+
+                <div class="form-group">
+                    <label>TVQ (9.975%) QST:</label>
+                    <input type="number" step="0.01" name="tax_qst" value="{{ receipt.tax_qst or '' }}">
+                </div>
+
+                <div class="form-group total">
+                    <label>Total:</label>
+                    <input type="number" step="0.01" name="total" value="{{ receipt.total }}" required>
+                </div>
+            </div>
+
+            {% if not receipt.tax_gst %}
+            <div class="tax-warning">
+                ⚠️ Taxes non détectées - Calculées automatiquement / Taxes not detected - Calculated automatically
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label>Mode de paiement / Payment Method:</label>
+            <select name="payment_method">
+                <option value="credit" {% if receipt.payment_method == 'credit' %}selected{% endif %}>Credit Card</option>
+                <option value="debit" {% if receipt.payment_method == 'debit' %}selected{% endif %}>Debit Card</option>
+                <option value="cash" {% if receipt.payment_method == 'cash' %}selected{% endif %}>Cash / Espèces</option>
+                <option value="other" {% if receipt.payment_method == 'other' %}selected{% endif %}>Other</option>
+            </select>
+        </div>
+
+        {% if receipt.items %}
+        <div class="items-section">
+            <h3>Articles / Items</h3>
+            <ul>
+                {% for item in receipt.items %}
+                <li>{{ item.name }} - ${{ "%.2f"|format(item.price) }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">💾 {{ text(lang, 'save') }}</button>
+            <a href="{{ url_for('scan', lang=lang) }}" class="btn-secondary">{{ text(lang, 'cancel') }}</a>
+        </div>
+
+        {% if receipt.ocr_engine %}
+        <div class="ocr-info">
+            <small>Engine: {{ receipt.ocr_engine }} | Confidence: {{ "%.0f"|format(receipt.confidence * 100) }}%</small>
+        </div>
+        {% endif %}
+    </form>
+</section>
+{% endblock %}

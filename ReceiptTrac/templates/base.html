@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ text(lang, 'app_name') }} - Quebec Tax Receipts</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <h1>📸 {{ text(lang, 'app_name') }}</h1>
+            <span class="tagline">{{ text(lang, 'tagline') }}</span>
+        </div>
+        <div class="nav-links">
+            <a href="{{ url_for('index', lang=lang) }}" class="nav-link">{{ text(lang, 'dashboard') }}</a>
+            <a href="{{ url_for('scan', lang=lang) }}" class="nav-link btn-primary">{{ text(lang, 'scan_receipt') }}</a>
+            <div class="lang-toggle">
+                <a href="?lang=fr" class="{% if lang == 'fr' %}active{% endif %}">FR</a>
+                <span>|</span>
+                <a href="?lang=en" class="{% if lang == 'en' %}active{% endif %}">EN</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+        <p>Made in Quebec 🏴󠁧󠁢󠁱󠁣󠁿 | ReceiptTrac 2025</p>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

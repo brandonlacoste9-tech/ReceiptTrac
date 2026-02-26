@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="dashboard">
+    <div class="filters">
+        <form method="GET" class="filter-form">
+            <input type="hidden" name="lang" value="{{ lang }}">
+
+            <select name="region" onchange="this.form.submit()">
+                <option value="">{{ text(lang, 'all_regions') }}</option>
+                {% for key, region in regions.items() %}
+                <option value="{{ key }}" {% if request.args.get('region') == key %}selected{% endif %}>
+                    {{ region['name_fr'] if lang == 'fr' else region['name_en'] }}
+                </option>
+                {% endfor %}
+            </select>
+
+            <select name="category" onchange="this.form.submit()">
+                <option value="">{{ text(lang, 'all_categories') }}</option>
+                <option value="restaurant" {% if request.args.get('category') == 'restaurant' %}selected{% endif %}>Restaurant</option>
+                <option value="grocery" {% if request.args.get('category') == 'grocery' %}selected{% endif %}>Épicerie/Grocery</option>
+                <option value="transport" {% if request.args.get('category') == 'transport' %}selected{% endif %}>Transport</option>
+                <option value="medical" {% if request.args.get('category') == 'medical' %}selected{% endif %}>Medical</option>
+                <option value="office" {% if request.args.get('category') == 'office' %}selected{% endif %}>Bureau/Office</option>
+            </select>
+
+            <a href="{{ url_for('export', region=request.args.get('region')) }}" class="btn-export">
+                📥 {{ text(lang, 'export') }}
+            </a>
+        </form>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <h3>{{ text(lang, 'total') }}</h3>
+            <p class="amount">${{ "%.2f"|format(summary.total_spent) }}</p>
+        </div>
+        <div class="stat-card tax">
+            <h3>{{ text(lang, 'gst') }}</h3>
+            <p class="amount">${{ "%.2f"|format(summary.total_gst) }}</p>
+        </div>
+        <div class="stat-card tax">
+            <h3>{{ text(lang, 'qst') }}</h3>
+            <p class="amount">${{ "%.2f"|format(summary.total_qst) }}</p>
+        </div>
+        <div class="stat-card deductible">
+            <h3>Déductible/Deductible</h3>
+            <p class="amount">${{ "%.2f"|format(summary.deductible_amount) }}</p>
+        </div>
+    </div>
+
+    {% if categories %}
+    <div class="category-breakdown">
+        <h2>Par catégorie / By Category</h2>
+        <div class="category-list">
+            {% for cat in categories %}
+            <div class="category-item">
+                <span class="cat-name">{{ cat.category }}</span>
+                <span class="cat-count">{{ cat.count }} reçus</span>
+                <span class="cat-amount">${{ "%.2f"|format(cat.total) }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="receipts-list">
+        <h2>Reçus récents / Recent Receipts</h2>
+        {% if receipts %}
+        <table class="receipt-table">
+            <thead>
+                <tr>
+                    <th>{{ text(lang, 'date') }}</th>
+                    <th>{{ text(lang, 'merchant') }}</th>
+                    <th>{{ text(lang, 'category') }}</th>
+                    <th>{{ text(lang, 'region') }}</th>
+                    <th>TPS</th>
+                    <th>TVQ</th>
+                    <th>{{ text(lang, 'total') }}</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for receipt in receipts %}
+                <tr>
+                    <td>{{ receipt.date or 'N/A' }}</td>
+                    <td>{{ receipt.merchant }}</td>
+                    <td>{{ receipt.category }}</td>
+                    <td>{{ regions[receipt.region]['name_fr'] if lang == 'fr' else regions[receipt.region]['name_en'] }}</td>
+                    <td>${{ "%.2f"|format(receipt.tax_gst or 0) }}</td>
+                    <td>${{ "%.2f"|format(receipt.tax_qst or 0) }}</td>
+                    <td class="total">${{ "%.2f"|format(receipt.total) }}</td>
+                    <td>
+                        <form action="{{ url_for('delete_receipt', receipt_id=receipt.id) }}" method="POST" style="display:inline;">
+                            <button type="submit" class="btn-delete" onclick="return confirm('Supprimer? Delete?')">🗑️</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">
+            <p>Aucun reçu / No receipts yet</p>
+            <a href="{{ url_for('scan', lang=lang) }}" class="btn-primary">{{ text(lang, 'scan_receipt') }}</a>
+        </div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

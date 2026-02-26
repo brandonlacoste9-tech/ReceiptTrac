@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="scan-section">
+    <h2>{{ text(lang, 'scan_receipt') }}</h2>
+
+    <div class="upload-area" id="dropZone">
+        <form method="POST" enctype="multipart/form-data" class="upload-form">
+            <input type="hidden" name="lang" value="{{ lang }}">
+
+            <div class="file-input-wrapper">
+                <input type="file" name="receipt" id="receipt" accept="image/*,.pdf" required 
+                       onchange="previewImage(this)">
+                <label for="receipt" class="file-label">
+                    <span class="upload-icon">📷</span>
+                    <span>Prenez une photo ou choisissez un fichier</span>
+                    <span class="sub">Take a photo or choose file</span>
+                </label>
+            </div>
+
+            <div id="imagePreview" class="image-preview" style="display:none;">
+                <img id="preview" src="" alt="Preview">
+            </div>
+
+            <div class="form-group">
+                <label>{{ text(lang, 'region') }}:</label>
+                <select name="region" required>
+                    {% for key, region in regions.items() %}
+                    <option value="{{ key }}">
+                        {{ region['name_fr'] if lang == 'fr' else region['name_en'] }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <button type="submit" class="btn-scan">
+                🔍 Analyser / Analyze
+            </button>
+        </form>
+    </div>
+
+    <div class="tips">
+        <h3>Conseils / Tips:</h3>
+        <ul>
+            <li>📱 Prenez la photo dans un endroit bien éclairé / Take photo in good lighting</li>
+            <li>📄 Assurez-vous que tout le reçu est visible / Ensure full receipt is visible</li>
+            <li>🔍 Vérifiez que les montants sont lisibles / Check that amounts are readable</li>
+        </ul>
+    </div>
+</section>
+
+<script>
+function previewImage(input) {
+    if (input.files && input.files[0]) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('preview').src = e.target.result;
+            document.getElementById('imagePreview').style.display = 'block';
+        }
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+// Drag and drop
+dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+});
+dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('dragover');
+});
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    document.getElementById('receipt').files = e.dataTransfer.files;
+    previewImage(document.getElementById('receipt'));
+});
+</script>
+{% endblock %}
