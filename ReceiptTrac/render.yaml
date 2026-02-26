@@ -16,3 +16,9 @@ services:
         sync: false
       - key: FLASK_ENV
         value: production
+      - key: FLASK_PORT
+        value: 10000
+    disk:
+      name: receipt-storage
+      mountPath: /opt/render/project/src/static/uploads
+      sizeGB: 1

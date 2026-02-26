@@ -4,27 +4,50 @@
 
 Your receipts, your taxes, your money. Built specifically for Quebec's unique tax system (GST 5% + QST 9.975%).
 
-![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
+![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)
 ![Flask](https://img.shields.io/badge/Flask-3.0+-green.svg)
 ![OpenAI](https://img.shields.io/badge/OpenAI-Vision-orange.svg)
 ![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)
 
 ## ✨ Features
 
-- 📸 **Smart Receipt Scanning** - OpenAI GPT-4 Vision + Google Cloud Vision fallback
-- 🏴󠁧󠁢󠁱󠁣󠁿 **Quebec Tax Engine** - Automatic GST/QST calculation and validation
-- 🗺️ **Regional Communities** - Filter by Montreal, Quebec City, Laval, etc.
-- 🇫🇷 **Bilingual** - French primary, English toggle
-- 💰 **Budget Tracking** - Category-based spending analysis
-- 🏦 **Tax Export** - CSV format for SimpleTax/TurboTax
-- 🔒 **Privacy First** - Self-hosted, your data stays local
+### 🧾 Smart Receipt Scanning
+- **OpenAI GPT-4 Vision** for accurate text extraction
+- **Google Cloud Vision** fallback for reliability
+- **Barcode & QR Code** scanning for product lookup
+- Automatic merchant, date, amount, and tax extraction
+
+### 🏴󠁧󠁢󠁱󠁣󠁿 Quebec Tax Engine
+- **Automatic TPS (5%) & TVQ (9.975%)** calculation
+- **Tax validation** to catch discrepancies
+- **Deductible expense tracking** (medical, education, business)
+- **Reverse calculation** from total amount
+
+### 💰 Budget & Analytics
+- **Category budgets** with spending alerts
+- **Recurring expense tracking** (subscriptions, bills)
+- **Spending insights** with AI-powered recommendations
+- **Savings goals** with progress tracking
+
+### 📊 Reports & Exports
+- **HTML tax reports** for easy review
+- **CSV export** for SimpleTax/TurboTax
+- **PDF generation** for documentation
+- **Year-over-year comparisons**
+
+### 🗺️ Regional Communities
+- Filter by Quebec regions: Montréal, Québec, Laval, Gatineau, Sherbrooke, Trois-Rivières
+
+### 🇫🇷 Bilingual
+- French primary with English toggle
+- All tax terms properly translated
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Python 3.8+
+- Python 3.11+
 - OpenAI API key (get at https://platform.openai.com)
-- (Optional) Google Cloud Vision credentials for backup OCR
+- (Optional) Google Cloud Vision credentials
 
 ### Installation
 
@@ -88,8 +111,9 @@ FLASK_PORT=5000
 ### 1. Scan Receipt
 - Click "Numériser un reçu"
 - Upload or drag-and-drop receipt image
-- Select your region (Montreal, Quebec City, etc.)
-- AI extracts: merchant, amounts, taxes, date
+- Select your region
+- AI extracts: merchant, amounts, taxes, date, category
+- Barcode scanning for product details
 
 ### 2. Verify Data
 - Review extracted information
@@ -103,10 +127,22 @@ FLASK_PORT=5000
 - Track GST/QST totals
 - See deductible amounts
 
-### 4. Export
-- Download CSV for tax software
-- SimpleTax compatible format
+### 4. Budget
+- Set monthly budgets by category
+- Track recurring expenses (subscriptions, bills)
+- Get spending insights and alerts
+- Monitor savings goals
+
+### 5. Reports
+- Generate tax reports by year
+- Export to CSV for tax software
+- View detailed HTML reports
+- Track deductions
+
+### 6. Export
+- Download CSV for SimpleTax/TurboTax
 - Filter by region or date range
+- PDF reports for documentation
 
 ## 🗺️ Regional Support
 
@@ -125,35 +161,16 @@ Pre-configured for Quebec regions:
 ReceiptTrac/
 ├── app.py                 # Main Flask application
 ├── services/
-│   ├── ocr_service.py     # OpenAI + Google Vision
+│   ├── ocr_service.py     # OpenAI + Google Vision + Barcode
 │   ├── tax_engine.py      # Quebec tax calculations
-│   └── storage.py         # SQLite database
+│   ├── storage.py         # SQLite database
+│   ├── budget_service.py  # Budgets & analytics
+│   └── report_service.py  # PDF/HTML reports
 ├── templates/             # Jinja2 HTML templates
 ├── static/               # CSS, JS, uploads
 ├── requirements.txt
 └── .env
 ```
-
-## 🧪 Progressive Rollout (Option A + B)
-
-This codebase supports incremental deployment:
-
-**Phase 1: Basic OCR** (OpenAI working)
-- Comment out Google Vision imports if not needed
-- Set `ENABLE_TAX_CALC=true`
-- Basic receipt scanning works
-
-**Phase 2: Add Backup OCR** (Google Vision)
-- Add Google Cloud credentials
-- Automatic fallback if OpenAI fails
-
-**Phase 3: Enable Communities**
-- Set `ENABLE_COMMUNITY=true`
-- Regional filtering active
-
-**Phase 4: Export Features**
-- Set `ENABLE_EXPORT=true`
-- CSV generation for tax software
 
 ## 📊 Tax Calculations
 
@@ -170,8 +187,28 @@ QST (9.975% on $105): $10.47
 Total:     $115.47
 ```
 
+## 📈 Budget Features
+
+- **Set Budgets**: Define monthly limits per category
+- **Track Spending**: Real-time budget vs actual
+- **Recurring Expenses**: Track subscriptions and bills
+- **Spending Insights**: AI-powered recommendations
+- **Savings Goals**: Set and track financial goals
+
+## 🚀 Deploy to Render
+
+1. Push to GitHub
+2. Connect to Render
+3. Add environment variables in Render dashboard
+4. Deploy!
+
 ## 🛣️ Roadmap
 
+- [x] Barcode & QR code scanning
+- [x] Budget tracking & alerts
+- [x] Recurring expense tracking
+- [x] Spending insights & analytics
+- [x] PDF report generation
 - [ ] Mobile app (React Native)
 - [ ] Bank statement import
 - [ ] Automatic categorization learning
