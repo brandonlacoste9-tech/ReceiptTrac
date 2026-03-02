@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="upload-section">
+    <h1>📂 {{ text(lang, 'import_statement') }}</h1>
+
+    <div class="card"
+        style="max-width: 600px; margin: 40px auto; padding: 40px; text-align: center; background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+        <h3>{{ 'Importez vos données bancaires' if lang == 'fr' else 'Import your bank data' }}</h3>
+        <p style="color: #666; margin-bottom: 30px;">
+            {{ 'Téléchargez un fichier CSV depuis Desjardins, RBC, BMO ou une autre grande banque. Notre IA nettoiera
+            les transactions et les assignera aux bonnes catégories.' if lang == 'fr' else 'Upload a CSV file from
+            Desjardins, RBC, BMO, or another major bank. Our AI will clean the transactions and assign them to the
+            correct categories.' }}
+        </p>
+
+        <form method="POST" enctype="multipart/form-data" class="upload-form">
+            <input type="hidden" name="lang" value="{{ lang }}">
+
+            <div class="file-drop-area"
+                style="border: 2px dashed #1a5490; padding: 40px; border-radius: 8px; cursor: pointer; margin-bottom: 20px; transition: all 0.3s ease;"
+                onclick="document.getElementById('statement').click()">
+                <span class="file-msg" style="font-size: 1.1em; color: #1a5490;">
+                    📁 {{ 'Cliquez pour choisir un fichier CSV' if lang == 'fr' else 'Click to choose a CSV file' }}
+                </span>
+                <input type="file" name="statement" id="statement" accept=".csv" required style="display: none;"
+                    onchange="document.querySelector('.file-msg').textContent = this.files[0].name">
+            </div>
+
+            <button type="submit" class="btn-primary" style="width: 100%; padding: 15px; font-size: 1.1em;">
+                ✨ {{ 'Analyser le relevé avec l\'IA' if lang == 'fr' else 'Process Statement with AI' }}
+            </button>
+        </form>
+    </div>
+</section>
+{% endblock %}

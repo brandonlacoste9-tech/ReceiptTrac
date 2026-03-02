@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div
+    style="max-width: 400px; margin: 50px auto; padding: 30px; background: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+    <h2 style="text-align: center; color: #1a5490; margin-bottom: 25px;">{{ "S'inscrire" if lang == 'fr' else 'Sign Up'
+        }}</h2>
+
+    <div
+        style="background: #e7f3ff; padding: 10px; border-left: 4px solid #1a5490; margin-bottom: 20px; font-size: 0.9em; color: #1a5490;">
+        {{ "Inscrivez-vous pour enregistrer plus de 15 reçus et synchroniser vos données sur mobile !" if lang == 'fr'
+        else "Sign up to save more than 15 receipts and sync your data to mobile!" }}
+    </div>
+
+    <form method="POST">
+        <div style="margin-bottom: 15px;">
+            <label style="display: block; margin-bottom: 5px; color: #666;">{{ "Nom d'utilisateur" if lang == 'fr' else
+                'Username' }}</label>
+            <input type="text" name="username"
+                style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;" required>
+        </div>
+
+        <div style="margin-bottom: 15px;">
+            <label style="display: block; margin-bottom: 5px; color: #666;">Email ({{ 'Optionnel' if lang == 'fr' else
+                'Optional' }})</label>
+            <input type="email" name="email"
+                style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
+        </div>
+
+        <div style="margin-bottom: 25px;">
+            <label style="display: block; margin-bottom: 5px; color: #666;">{{ 'Mot de passe' if lang == 'fr' else
+                'Password' }}</label>
+            <input type="password" name="password"
+                style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;" required>
+        </div>
+
+        <button type="submit" class="btn-primary"
+            style="width: 100%; padding: 12px; border: none; border-radius: 6px; font-weight: bold;">
+            {{ "Créer mon compte" if lang == 'fr' else 'Create Account' }}
+        </button>
+    </form>
+
+    <p style="text-align: center; margin-top: 20px; color: #666; font-size: 0.9em;">
+        {{ "Déjà un compte ?" if lang == 'fr' else "Already have an account?" }}
+        <a href="{{ url_for('login', lang=lang) }}" style="color: #1a5490; text-decoration: none; font-weight: bold;">{{
+            'Se connecter' if lang == 'fr' else 'Login' }}</a>
+    </p>
+</div>
+{% endblock %}

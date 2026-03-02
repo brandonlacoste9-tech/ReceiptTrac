@@ -9,7 +9,7 @@
             <select name="region" onchange="this.form.submit()">
                 <option value="">{{ text(lang, 'all_regions') }}</option>
                 {% for key, region in regions.items() %}
-                <option value="{{ key }}" {% if request.args.get('region') == key %}selected{% endif %}>
+                <option value="{{ key }}" {% if request.args.get('region')==key %}selected{% endif %}>
                     {{ region['name_fr'] if lang == 'fr' else region['name_en'] }}
                 </option>
                 {% endfor %}
@@ -17,14 +17,19 @@
 
             <select name="category" onchange="this.form.submit()">
                 <option value="">{{ text(lang, 'all_categories') }}</option>
-                <option value="restaurant" {% if request.args.get('category') == 'restaurant' %}selected{% endif %}>Restaurant</option>
-                <option value="grocery" {% if request.args.get('category') == 'grocery' %}selected{% endif %}>Épicerie/Grocery</option>
-                <option value="transport" {% if request.args.get('category') == 'transport' %}selected{% endif %}>Transport</option>
-                <option value="medical" {% if request.args.get('category') == 'medical' %}selected{% endif %}>Medical</option>
-                <option value="office" {% if request.args.get('category') == 'office' %}selected{% endif %}>Bureau/Office</option>
+                <option value="restaurant" {% if request.args.get('category')=='restaurant' %}selected{% endif %}>
+                    Restaurant</option>
+                <option value="grocery" {% if request.args.get('category')=='grocery' %}selected{% endif %}>
+                    Épicerie/Grocery</option>
+                <option value="transport" {% if request.args.get('category')=='transport' %}selected{% endif %}>
+                    Transport</option>
+                <option value="medical" {% if request.args.get('category')=='medical' %}selected{% endif %}>Medical
+                </option>
+                <option value="office" {% if request.args.get('category')=='office' %}selected{% endif %}>Bureau/Office
+                </option>
             </select>
 
-            <a href="{{ url_for('export', region=request.args.get('region')) }}" class="btn-export">
+            <a href="{{ url_for('export_legacy', region=request.args.get('region')) }}" class="btn-export">
                 📥 {{ text(lang, 'export') }}
             </a>
         </form>
@@ -71,6 +76,7 @@
             <thead>
                 <tr>
                     <th>{{ text(lang, 'date') }}</th>
+                    <th>Type</th>
                     <th>{{ text(lang, 'merchant') }}</th>
                     <th>{{ text(lang, 'category') }}</th>
                     <th>{{ text(lang, 'region') }}</th>
@@ -84,15 +90,30 @@
                 {% for receipt in receipts %}
                 <tr>
                     <td>{{ receipt.date or 'N/A' }}</td>
+                    <td>
+                        {% if receipt.document_type == 'invoice' %}
+                        <span
+                            style="background:#fff3cd; color:#856404; padding:2px 6px; border-radius:4px; font-size:12px;">Invoice</span>
+                        {% elif receipt.document_type == 'bill' %}
+                        <span
+                            style="background:#f8d7da; color:#721c24; padding:2px 6px; border-radius:4px; font-size:12px;">Bill</span>
+                        {% else %}
+                        <span
+                            style="background:#e2e3e5; color:#383d41; padding:2px 6px; border-radius:4px; font-size:12px;">Receipt</span>
+                        {% endif %}
+                    </td>
                     <td>{{ receipt.merchant }}</td>
                     <td>{{ receipt.category }}</td>
-                    <td>{{ regions[receipt.region]['name_fr'] if lang == 'fr' else regions[receipt.region]['name_en'] }}</td>
+                    <td>{{ regions[receipt.region]['name_fr'] if lang == 'fr' else regions[receipt.region]['name_en'] }}
+                    </td>
                     <td>${{ "%.2f"|format(receipt.tax_gst or 0) }}</td>
                     <td>${{ "%.2f"|format(receipt.tax_qst or 0) }}</td>
                     <td class="total">${{ "%.2f"|format(receipt.total) }}</td>
                     <td>
-                        <form action="{{ url_for('delete_receipt', receipt_id=receipt.id) }}" method="POST" style="display:inline;">
-                            <button type="submit" class="btn-delete" onclick="return confirm('Supprimer? Delete?')">🗑️</button>
+                        <form action="{{ url_for('delete_receipt', receipt_id=receipt.id) }}" method="POST"
+                            style="display:inline;">
+                            <button type="submit" class="btn-delete"
+                                onclick="return confirm('Supprimer? Delete?')">🗑️</button>
                         </form>
                     </td>
                 </tr>

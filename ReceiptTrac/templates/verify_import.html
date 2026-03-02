@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="verify-section" style="max-width: 1000px; margin: 0 auto;">
+    <h1>✨ {{ 'Vérifier l\'importation' if lang == 'fr' else 'Verify Import' }}</h1>
+
+    <div class="alert alert-info"
+        style="background: #e7f3ff; color: #1a5490; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+        💡 {{ 'L\'IA a extrait %d transactions. Veuillez les vérifier avant de sauvegarder.' |
+        format(transactions|length) if lang == 'fr' else 'AI extracted %d transactions. Please verify them before
+        saving.' | format(transactions|length) }}
+    </div>
+
+    <form action="{{ url_for('save_imported_transactions') }}" method="POST">
+        <input type="hidden" name="transactions_data" value="{{ transactions_json }}">
+
+        <div class="form-group" style="margin-bottom: 20px;">
+            <label>{{ text(lang, 'region') }}:</label>
+            <select name="region" required style="padding: 8px; border-radius: 4px;">
+                {% for key, region in regions.items() %}
+                <option value="{{ key }}" {% if key=='autre' %}selected{% endif %}>
+                    {{ region['name_fr'] if lang == 'fr' else region['name_en'] }}
+                </option>
+                {% endfor %}
+            </select>
+            <small style="color: #666; display: block; margin-top: 5px;">
+                {{ 'Cette région sera appliquée à toutes les transactions importées pour le calcul des taxes (inversé).'
+                if lang == 'fr' else 'This region will be applied to all imported transactions for reverse tax
+                calculation.' }}
+            </small>
+        </div>
+
+        <div class="card"
+            style="background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); overflow: hidden;">
+            <table class="receipt-table" style="width: 100%; border-collapse: collapse;">
+                <thead style="background: #f8f9fa;">
+                    <tr>
+                        <th style="padding: 15px; text-align: left;">{{ text(lang, 'date') }}</th>
+                        <th style="padding: 15px; text-align: left;">{{ text(lang, 'merchant') }} (Cleaned)</th>
+                        <th style="padding: 15px; text-align: left;">{{ text(lang, 'category') }}</th>
+                        <th style="padding: 15px; text-align: right;">{{ text(lang, 'total') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tx in transactions %}
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 15px;">{{ tx.date }}</td>
+                        <td style="padding: 15px;"><strong>{{ tx.merchant }}</strong></td>
+                        <td style="padding: 15px;">
+                            <span style="background: #e9ecef; padding: 4px 8px; border-radius: 4px; font-size: 0.9em;">
+                                {{ tx.category }}
+                            </span>
+                        </td>
+                        <td style="padding: 15px; text-align: right; font-weight: bold;">
+                            ${{ "%.2f"|format(tx.total) }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="form-actions" style="margin-top: 30px; display: flex; gap: 15px; justify-content: flex-end;">
+            <a href="{{ url_for('import_statement', lang=lang) }}" class="btn-secondary"
+                style="padding: 12px 24px; text-decoration: none; border-radius: 6px; background: #6c757d; color: white;">
+                {{ text(lang, 'cancel') }}
+            </a>
+            <button type="submit" class="btn-primary"
+                style="padding: 12px 24px; border: none; border-radius: 6px; font-size: 1.1em; cursor: pointer;">
+                💾 {{ text(lang, 'save') }} {{ transactions|length }} Transactions
+            </button>
+        </div>
+    </form>
+</section>
+{% endblock %}

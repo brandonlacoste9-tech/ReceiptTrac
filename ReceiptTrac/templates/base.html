@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="{{ lang }}">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +8,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
+
 <body>
     <nav class="navbar">
         <div class="nav-brand">
@@ -14,8 +16,28 @@
             <span class="tagline">{{ text(lang, 'tagline') }}</span>
         </div>
         <div class="nav-links">
-            <a href="{{ url_for('index', lang=lang) }}" class="nav-link">{{ text(lang, 'dashboard') }}</a>
-            <a href="{{ url_for('scan', lang=lang) }}" class="nav-link btn-primary">{{ text(lang, 'scan_receipt') }}</a>
+            <a href="{{ url_for('index', lang=lang) }}"
+                class="nav-link {% if request.endpoint == 'index' %}active{% endif %}">{{ text(lang, 'dashboard') }}</a>
+            <a href="{{ url_for('scan', lang=lang) }}"
+                class="nav-link btn-primary {% if request.endpoint == 'scan' %}active{% endif %}">{{ text(lang,
+                'scan_receipt') }}</a>
+            <a href="{{ url_for('import_statement', lang=lang) }}"
+                class="nav-link {% if request.endpoint == 'import_statement' %}active{% endif %}">
+                📥 {{ text(lang, 'import_statement') }}
+            </a>
+            <a href="{{ url_for('budget_dashboard', lang=lang) }}"
+                class="nav-link {% if request.endpoint == 'budget_dashboard' %}active{% endif %}">
+                {{ text(lang, 'budget') }}
+            </a>
+            <a href="{{ url_for('reports', lang=lang) }}"
+                class="nav-link {% if request.endpoint == 'reports' %}active{% endif %}">
+                {{ text(lang, 'reports') }}
+            </a>
+            <a href="{{ url_for('optimize_taxes', lang=lang) }}"
+                class="nav-link {% if request.endpoint == 'optimize_taxes' %}active{% endif %}"
+                style="color: #ffc107; font-weight: bold;">
+                ✨ {{ 'Optimisation IA' if lang == 'fr' else 'AI Optimize' }}
+            </a>
             <div class="lang-toggle">
                 <a href="?lang=fr" class="{% if lang == 'fr' %}active{% endif %}">FR</a>
                 <span>|</span>
@@ -26,11 +48,11 @@
 
     <main class="container">
         {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }}">{{ message }}</div>
-                {% endfor %}
-            {% endif %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+        {% endif %}
         {% endwith %}
 
         {% block content %}{% endblock %}
@@ -42,4 +64,5 @@
 
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
+
 </html>

@@ -12,7 +12,7 @@ try:
     from pyzbar.pyzbar import decode
     from PIL import Image
     PYZBAR_AVAILABLE = True
-except ImportError:
+except Exception:
     PYZBAR_AVAILABLE = False
 
 class BarcodeService:

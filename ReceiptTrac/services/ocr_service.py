@@ -40,7 +40,7 @@ class ReceiptOCR:
         with open(image_path, "rb") as f:
             base64_image = base64.b64encode(f.read()).decode()
 
-        prompt = """Analyze this receipt image and extract the following information in JSON format:
+        prompt = """Analyze this receipt/invoice image and extract the following information in JSON format:
         {
             "merchant": "store name",
             "date": "YYYY-MM-DD",
@@ -53,6 +53,7 @@ class ReceiptOCR:
             "items": [{"name": str, "price": float}],
             "payment_method": "credit/debit/cash/other",
             "address": "store address if visible",
+            "document_type": "one of: receipt, invoice, bill",
             "confidence": float (0-1)
         }
         For Quebec receipts, ensure GST is 5% and QST is 9.975%. 

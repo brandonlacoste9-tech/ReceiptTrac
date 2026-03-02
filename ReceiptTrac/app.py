@@ -5,11 +5,15 @@ Enhanced with Budget, Barcode Scanning, and Tax Reports
 import os
 import uuid
 from datetime import datetime
-from flask import Flask, render_template, request, jsonify, send_file, flash, redirect, url_for, make_response
+from flask import Flask, render_template, request, jsonify, send_file, flash, redirect, url_for, make_response, session
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 import pandas as pd
 import io
+import csv
+import json
+import sqlite3
+import hashlib
 
 # Load environment variables
 load_dotenv()
@@ -19,6 +23,7 @@ from services import ReceiptOCR, QuebecTaxEngine, ReceiptStorage
 from services.barcode_service import BarcodeService
 from services.budget_service import BudgetService
 from services.report_service import ReportService
+from services.bank_import_service import BankImportService
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "dev-secret-key")
@@ -39,6 +44,10 @@ storage = ReceiptStorage()
 barcode_service = BarcodeService()
 budget_service = BudgetService()
 report_service = ReportService(storage, tax_engine)
+bank_import_service = BankImportService()
+
+# Global Constants
+FREE_LIMIT = 15
 
 # Language helper
 def get_text(lang, key):
@@ -48,6 +57,7 @@ def get_text(lang, key):
             "app_name": "ReceiptTrac",
             "tagline": "Vos reçus, vos taxes, votre argent",
             "scan_receipt": "Numériser un reçu",
+            "import_statement": "Importer un relevé",
             "dashboard": "Tableau de bord",
             "budget": "Budget",
             "reports": "Rapports",
@@ -98,6 +108,7 @@ def get_text(lang, key):
             "app_name": "ReceiptTrac",
             "tagline": "Your receipts, your taxes, your money",
             "scan_receipt": "Scan Receipt",
+            "import_statement": "Import Statement",
             "dashboard": "Dashboard",
             "budget": "Budget",
             "reports": "Reports",
@@ -150,21 +161,74 @@ def get_text(lang, key):
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
+# ============ AUTH ROUTES ============
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    lang = request.args.get("lang", session.get("lang", "fr"))
+    if request.method == "POST":
+        username = request.form.get("username")
+        password = request.form.get("password")
+        user = storage.verify_user(username, password)
+        if user:
+            session["user_id"] = user["id"]
+            session["username"] = user["username"]
+            flash(f"Welcome back, {username}!" if lang == "en" else f"Bienvenue, {username}!", "success")
+            return redirect(url_for("index", lang=lang))
+        else:
+            flash("Invalid username or password" if lang == "en" else "Nom d'utilisateur ou mot de passe invalide", "error")
+    
+    return render_template("login.html", lang=lang, text=get_text)
+
+@app.route("/signup", methods=["GET", "POST"])
+def signup():
+    lang = request.args.get("lang", session.get("lang", "fr"))
+    if request.method == "POST":
+        username = request.form.get("username")
+        password = request.form.get("password")
+        email = request.form.get("email")
+        
+        result = storage.create_user(username, password, email)
+        if isinstance(result, int):
+            session["user_id"] = result
+            session["username"] = username
+            flash("Account created successfully!" if lang == "en" else "Compte créé avec succès!", "success")
+            return redirect(url_for("index", lang=lang))
+        else:
+            flash(result, "error")
+            
+    return render_template("signup.html", lang=lang, text=get_text)
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("index"))
+
 # ============ MAIN ROUTES ============
 
 @app.route("/")
 def index():
     """Dashboard / Home"""
-    lang = request.args.get("lang", "fr")
+    lang = request.args.get("lang", session.get("lang", "fr"))
+    session["lang"] = lang
+    
+    user_id = session.get("user_id", 0) # 0 = Guest
+    
+    # Check if guest has reached limit
+    guest_count = 0
+    if user_id == 0:
+        guest_count = storage.get_receipt_count(0)
+        if guest_count >= FREE_LIMIT:
+            flash("Limit reached! Please sign up to continue tracking receipts." if lang == "en" 
+                  else "Limite atteinte ! Veuillez vous inscrire pour continuer à suivre vos reçus.", "warning")
+            return redirect(url_for("signup", lang=lang))
+
     region = request.args.get("region")
     category = request.args.get("category")
     
-    # Get receipts with filters
-    receipts = storage.get_receipts(region=region, category=category)
-    
-    # Calculate summary
+    receipts = storage.get_receipts(user_id=user_id, region=region, category=category)
     summary = tax_engine.get_tax_summary(receipts)
-    categories = storage.get_spending_by_category(region=region)
+    categories = storage.get_spending_by_category(user_id=user_id, region=region)
     
     # Get budget status
     budget_status = budget_service.get_budget_status()
@@ -216,6 +280,13 @@ def scan():
                 result["image_path"] = filepath
                 result["region"] = request.form.get("region", "autre")
                 result["barcode_data"] = barcode_data
+
+                # AI Categorization Learning: Check if we've learned a better category for this merchant
+                merchant = result.get("merchant")
+                if merchant:
+                    learned_cat = storage.get_learned_category(merchant)
+                    if learned_cat:
+                        result["category"] = learned_cat
                 
                 # If taxes missing, calculate them
                 if not result.get("tax_gst") and not result.get("tax_qst"):
@@ -241,29 +312,114 @@ def scan():
                          lang=lang,
                          text=get_text)
 
+@app.route("/import_statement", methods=["GET", "POST"])
+def import_statement():
+    """Bank Statement CSV Import"""
+    lang = request.args.get("lang", session.get("lang", "fr"))
+    user_id = session.get("user_id", 0)
+    
+    if user_id == 0 and storage.get_receipt_count(0) >= FREE_LIMIT:
+        flash("Please sign up to use the bulk import feature." if lang == "en" else "Veuillez vous inscrire pour utiliser la fonction d'importation groupée.", "warning")
+        return redirect(url_for("signup", lang=lang))
+
+    if request.method == "POST":
+        if "statement" not in request.files:
+            flash("No file uploaded", "error")
+            return redirect(request.url)
+            
+        file = request.files["statement"]
+        if file.filename == "":
+            flash("No file selected", "error")
+            return redirect(request.url)
+            
+        if file and file.filename.endswith(".csv"):
+            try:
+                content = file.read().decode("utf-8")
+                transactions = bank_import_service.parse_csv(content, file.filename)
+                
+                if not transactions:
+                    flash("No valid transactions found in CSV", "warning")
+                    return redirect(request.url)
+
+                # AI Categorization Learning: Apply past manual adjustments to the AI parser
+                for tx in transactions:
+                    merchant = tx.get("merchant")
+                    if merchant:
+                        learned_cat = storage.get_learned_category(merchant)
+                        if learned_cat:
+                            tx["category"] = learned_cat
+                    
+                # Store temporarily in session or pass via hidden fields
+                # For simplicity here, we'll pass them to the template as a JSON string to be re-posted
+                import json
+                return render_template("verify_import.html",
+                                     transactions=transactions,
+                                     transactions_json=json.dumps(transactions),
+                                     regions=tax_engine.regions,
+                                     lang=lang,
+                                     text=get_text)
+            except Exception as e:
+                flash(f"Error parsing statement: {str(e)}", "error")
+                return redirect(request.url)
+        else:
+            flash("Please upload a .csv file", "error")
+            return redirect(request.url)
+            
+    return render_template("import.html", lang=lang, text=get_text)
+
+@app.route("/save_imported_transactions", methods=["POST"])
+def save_imported_transactions():
+    """Batch save transactions from bank import"""
+    import json
+    
+    raw_data = request.form.get("transactions_data", "[]")
+    region_override = request.form.get("region", "autre")
+    
+    try:
+        transactions = json.loads(raw_data)
+        saved_count = 0
+        
+        for tx in transactions:
+            tx["region"] = region_override
+            storage.save_receipt(tx)
+            saved_count += 1
+            
+        flash(f"Successfully saved {saved_count} transactions!", "success")
+    except Exception as e:
+        flash(f"Error saving transactions: {str(e)}", "error")
+        
+    return redirect(url_for("index"))
+
 @app.route("/save_receipt", methods=["POST"])
 def save_receipt():
     """Save verified receipt to database"""
-    data = {
-        "merchant": request.form.get("merchant"),
-        "date": request.form.get("date"),
-        "total": float(request.form.get("total", 0)),
-        "subtotal": float(request.form.get("subtotal", 0)) if request.form.get("subtotal") else None,
-        "tax_gst": float(request.form.get("tax_gst", 0)),
-        "tax_qst": float(request.form.get("tax_qst", 0)),
-        "tax_total": float(request.form.get("tax_total", 0)),
-        "category": request.form.get("category", "other"),
-        "region": request.form.get("region", "autre"),
-        "payment_method": request.form.get("payment_method"),
-        "address": request.form.get("address"),
-        "image_path": request.form.get("image_path"),
-        "ocr_engine": request.form.get("ocr_engine", "manual"),
-        "confidence": float(request.form.get("confidence", 1.0))
-    }
+    lang = request.args.get("lang", session.get("lang", "fr"))
+    user_id = session.get("user_id", 0)
     
-    receipt_id = storage.save_receipt(data)
-    flash("Receipt saved successfully!", "success")
-    return redirect(url_for("index"))
+    if request.method == "POST":
+        data = {
+            "user_id": user_id,
+            "merchant": request.form.get("merchant"),
+            "date": request.form.get("date"),
+            "total": float(request.form.get("total", 0)),
+            "subtotal": float(request.form.get("subtotal", 0)) if request.form.get("subtotal") else 0,
+            "tax_gst": float(request.form.get("tax_gst", 0)) if request.form.get("tax_gst") else 0,
+            "tax_qst": float(request.form.get("tax_qst", 0)) if request.form.get("tax_qst") else 0,
+            "tax_total": float(request.form.get("tax_total", 0)) if request.form.get("tax_total") else 0,
+            "category": request.form.get("category", "other"),
+            "region": request.form.get("region", "autre"),
+            "payment_method": request.form.get("payment_method"),
+            "address": request.form.get("address"),
+            "image_path": request.form.get("image_path"),
+            "ocr_engine": request.form.get("ocr_engine", "manual"),
+            "confidence": float(request.form.get("confidence", 1.0)),
+            "document_type": request.form.get("document_type", "receipt")
+        }
+        
+        storage.save_receipt(data)
+        flash("Entry saved!" if lang == "en" else "Entrée enregistrée !", "success")
+        return redirect(url_for("index", lang=lang))
+    return redirect(url_for("scan", lang=lang))
 
 @app.route("/delete/<int:receipt_id>", methods=["POST"])
 def delete_receipt(receipt_id):
@@ -319,13 +475,13 @@ def add_recurring():
 @app.route("/reports")
 def reports():
     """Tax reports page"""
-    lang = request.args.get("lang", "fr")
+    lang = request.args.get("lang", session.get("lang", "fr"))
     year = request.args.get("year", datetime.now().year, type=int)
-    
+    user_id = session.get("user_id", 0)
     # Get receipts for the year
     start_date = f"{year}-01-01"
     end_date = f"{year}-12-31"
-    receipts = storage.get_receipts(start_date=start_date, end_date=end_date)
+    receipts = storage.get_receipts(user_id=user_id, start_date=start_date, end_date=end_date)
     summary = tax_engine.get_tax_summary(receipts)
     
     return render_template("reports.html",
@@ -361,15 +517,17 @@ def export_csv(year):
 @app.route("/api/receipts")
 def api_receipts():
     """API endpoint for receipts"""
+    user_id = session.get("user_id", 0)
     region = request.args.get("region")
     category = request.args.get("category")
-    receipts = storage.get_receipts(region=region, category=category)
+    receipts = storage.get_receipts(user_id=user_id, region=region, category=category)
     return jsonify(receipts)
 
 @app.route("/api/stats")
 def api_stats():
     """API endpoint for statistics"""
-    receipts = storage.get_receipts()
+    user_id = session.get("user_id", 0)
+    receipts = storage.get_receipts(user_id=user_id)
     summary = tax_engine.get_tax_summary(receipts)
     return jsonify(summary)
 
@@ -382,8 +540,9 @@ def api_budget_status():
 @app.route("/api/insights")
 def api_insights():
     """API endpoint for spending insights"""
+    user_id = session.get("user_id", 0)
     months = request.args.get("months", 3, type=int)
-    insights = budget_service.get_spending_insights(months)
+    insights = budget_service.get_spending_insights(months) # Note: budget_service needs user isolation eventually
     return jsonify(insights)
 
 @app.route("/api/barcode/scan", methods=["POST"])
@@ -408,6 +567,116 @@ def api_scan_barcode():
             return jsonify({"error": str(e)}), 500
     
     return jsonify({"error": "Invalid file"}), 400
+
+# ============ MOBILE API ROUTES ============
+
+@app.route("/api/mobile/scan", methods=["POST"])
+def api_mobile_scan():
+    """Headless API for mobile app to scan a receipt"""
+    user_id = request.form.get("user_id", 0, type=int)
+    
+    if user_id == 0 and storage.get_receipt_count(0) >= FREE_LIMIT:
+        return jsonify({"error": "Limit reached", "needs_signup": True}), 403
+
+    if "file" not in request.files:
+        return jsonify({"error": "No file part"}), 400
+        
+    file = request.files["file"]
+    if file.filename == "":
+        return jsonify({"error": "No selected file"}), 400
+        
+    if file and allowed_file(file.filename):
+        filename = str(uuid.uuid4()) + "_" + secure_filename(file.filename)
+        filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+        file.save(filepath)
+        
+        try:
+            result = ocr_service.scan_receipt(filepath)
+            result["image_path"] = f"/static/uploads/{filename}"
+            
+            # Check for barcode overlay (optional but helpful)
+            barcode_data = barcode_service.scan_barcode(filepath)
+            result["barcode_data"] = barcode_data
+            
+            # AI Categorization Learning
+            merchant = result.get("merchant")
+            if merchant:
+                learned_cat = storage.get_learned_category(merchant)
+                if learned_cat:
+                    result["category"] = learned_cat
+
+            # Guess taxes if empty
+            if not result.get("tax_gst") and not result.get("tax_qst"):
+                taxes = tax_engine.extract_from_total(result.get("total", 0))
+                result.update({
+                    "subtotal": taxes["subtotal"],
+                    "tax_gst": taxes["gst"],
+                    "tax_qst": taxes["qst"],
+                    "tax_total": taxes["tax_total"]
+                })
+                
+            return jsonify(result)
+        except Exception as e:
+            print("OCR Error:", e)
+            return jsonify({"error": str(e)}), 500
+            
+    return jsonify({"error": "Invalid file type"}), 400
+
+@app.route("/api/mobile/save", methods=["POST"])
+def api_mobile_save():
+    """Headless API for mobile to save receipt details"""
+    data = request.json
+    if not data:
+        return jsonify({"error": "No JSON data provided"}), 400
+        
+    try:
+        # Reconstruct path if needed, but the client passes `image_path`
+        receipt_id = storage.save_receipt(data)
+        return jsonify({"success": True, "receipt_id": receipt_id})
+    except Exception as e:
+        print("Save Error:", e)
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/mobile/recent", methods=["GET"])
+def api_mobile_recent():
+    """Return recent 10 receipts"""
+    user_id = request.args.get("user_id", 0, type=int)
+    receipts = storage.get_receipts(user_id=user_id)
+    return jsonify(receipts[:10])
+
+@app.route("/optimize")
+def optimize_taxes():
+    """AI Tax Optimization Dashboard"""
+    lang = request.args.get("lang", "fr")
+    
+    # Simple logic: Fetch all "other" category receipts that might be eligible for deduction
+    # In Quebec, Medical, Transport, Education, and Office can be claimed under specific scenarios.
+    receipts_to_review = storage.get_receipts(category="other")
+    
+    suggestions = []
+    # Very rudimentary rule-based optimization for speed, 
+    # instead of doing bulk OpenAI calls here.
+    keywords = {
+        "medical": ["pharmacie", "dentist", "clinic", "optometrist", "jean coutu", "uniprix", "hôpital"],
+        "office": ["bureau en gros", "staples", "best buy", "apple", "ordinateur", "software"],
+        "transport": ["stm", "exo", "rtc", "bus", "train", "taxi", "uber", "gas"]
+    }
+    
+    for r in receipts_to_review:
+        merchant = r.get("merchant", "").lower()
+        for cat, kw_list in keywords.items():
+            if any(kw in merchant for kw in kw_list):
+                suggestions.append({
+                    "receipt": r,
+                    "suggested_category": cat,
+                    "reason": f"Mots clés détectés / Keyword detected for {cat} deduction"
+                })
+                break
+                
+    return render_template("optimize.html",
+                         suggestions=suggestions,
+                         lang=lang,
+                         text=get_text)
 
 # ============ LEGACY EXPORT (kept for compatibility) ============
 

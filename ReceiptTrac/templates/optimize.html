@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="optimize-section" style="max-width: 900px; margin: 0 auto;">
+    <h1>✨ {{ 'Optimisation Fiscale IA' if lang == 'fr' else 'AI Tax Optimization' }}</h1>
+
+    <div class="card" style="background: white; padding: 25px; border-radius: 12px; margin-bottom: 25px;">
+        <p style="color: #666; font-size: 1.1em; line-height: 1.6;">
+            {{ "Nous avons analysé vos reçus non catégorisés (Autre). Au Québec, certaines dépenses médicales, de bureau
+            et de transport en commun peuvent être déduites. Voici quelques reçus que vous pourriez vouloir
+            recatégoriser :" if lang == 'fr' else "We analyzed your uncategorized (Other) receipts. In Quebec, certain
+            medical, home office, and public transit expenses can be deducted. Here are some receipts you might want to
+            recategorize:" }}
+        </p>
+    </div>
+
+    {% if suggestions %}
+    <div class="suggestions-list" style="display: flex; flex-direction: column; gap: 15px;">
+        {% for item in suggestions %}
+        <div class="card"
+            style="background: white; border-left: 4px solid #1a5490; padding: 20px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h3 style="margin: 0 0 5px 0;">{{ item.receipt.merchant }}</h3>
+                <div style="color: #666; font-size: 0.9em; margin-bottom: 10px;">
+                    📅 {{ item.receipt.date }} &nbsp;|&nbsp; 💰 ${{ "%.2f"|format(item.receipt.total) }}
+                </div>
+                <div
+                    style="background: #e7f3ff; color: #1a5490; padding: 8px 12px; border-radius: 4px; display: inline-block; font-size: 0.85em;">
+                    💡 {{ item.reason }}
+                </div>
+            </div>
+            <div>
+                <span style="font-weight: bold; margin-right: 15px;">👉 {{ text(lang, 'category') }}: <span
+                        style="color: #28a745;">{{ text(lang, 'categories')[item.suggested_category] if text(lang,
+                        'categories') is mapping else item.suggested_category }}</span></span>
+
+                <!-- Form to accept suggestion -->
+                <form action="{{ url_for('save_receipt') }}" method="POST" style="display: inline;">
+                    <input type="hidden" name="merchant" value="{{ item.receipt.merchant }}">
+                    <input type="hidden" name="date" value="{{ item.receipt.date }}">
+                    <input type="hidden" name="total" value="{{ item.receipt.total }}">
+                    <input type="hidden" name="subtotal" value="{{ item.receipt.subtotal or 0 }}">
+                    <input type="hidden" name="tax_gst" value="{{ item.receipt.tax_gst or 0 }}">
+                    <input type="hidden" name="tax_qst" value="{{ item.receipt.tax_qst or 0 }}">
+                    <input type="hidden" name="tax_total" value="{{ item.receipt.tax_total or 0 }}">
+                    <input type="hidden" name="category" value="{{ item.suggested_category }}">
+                    <input type="hidden" name="region" value="{{ item.receipt.region }}">
+                    <input type="hidden" name="payment_method" value="{{ item.receipt.payment_method or '' }}">
+                    <input type="hidden" name="ocr_engine" value="optimization_engine">
+                    <button type="submit" class="btn-primary"
+                        style="padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer;">
+                        {{ 'Accepter et Recatégoriser' if lang == 'fr' else 'Accept & Recategorize' }}
+                    </button>
+                </form>
+                <!-- Behind the scenes, we would ideally UPDATE the receipt ID. Because our current route saves a NEW receipt, we'll delete the old one first. -->
+                <form action="{{ url_for('delete_receipt', receipt_id=item.receipt.id) }}" method="POST"
+                    style="display: inline; margin-left: 10px;">
+                    <button type="submit" class="btn-delete"
+                        style="padding: 8px 16px; border-radius: 6px; border: none;">🗑️</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="card" style="text-align: center; padding: 50px; background: white; border-radius: 12px;">
+        <h3>🎉 {{ 'Tout est parfait !' if lang == 'fr' else 'Everything looks great!' }}</h3>
+        <p style="color: #666;">
+            {{ 'Nous n\'avons trouvé aucune preuve de déductions manquées dans vos dépenses non catégorisées.' if lang
+            == 'fr' else 'We did not find any evidence of missed deductions in your uncategorized expenses.' }}
+        </p>
+        <a href="{{ url_for('index', lang=lang) }}" class="btn-primary"
+            style="display: inline-block; padding: 10px 20px; border-radius: 6px; margin-top: 15px; text-decoration: none;">
+            {{ text(lang, 'dashboard') }}
+        </a>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}
