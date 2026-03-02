@@ -1,76 +1,88 @@
-"""
-ReceiptTrac - Quebec Tax Receipt Tracker
-Enhanced with Budget, Barcode Scanning, and Tax Reports
-"""
 import os
+import io
+import csv
+import json
 import uuid
+import sqlite3
+import hashlib
+import traceback
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, send_file, flash, redirect, url_for, make_response, session
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 import pandas as pd
-import io
-import csv
-import json
-import sqlite3
-import hashlib
 
 # Load environment variables
 load_dotenv()
 
-# Import services
-from services import ReceiptOCR, QuebecTaxEngine, ReceiptStorage
-from services.barcode_service import BarcodeService
-from services.budget_service import BudgetService
-from services.report_service import ReportService
-from services.bank_import_service import BankImportService
+# Pre-declare app for error handling
+app = Flask(__name__)
 
-# Configuration and Paths
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-IS_VERCEL = os.environ.get("VERCEL") == "1"
-
-app = Flask(__name__, 
-            template_folder=os.path.join(BASE_DIR, "templates"),
-            static_folder=os.path.join(BASE_DIR, "static"))
-app.secret_key = os.getenv("SECRET_KEY", "dev-secret-key")
-
-# Detect Vercel environment
-IS_VERCEL = os.environ.get("VERCEL") == "1"
-
-# Config
-if IS_VERCEL:
-    # Vercel is read-only, we must use /tmp for database and uploads if we want to avoid crashes
-    DB_PATH = "/tmp/receipttrac.db"
-    UPLOAD_FOLDER = "/tmp/static/uploads"
-    # Copy existing DB to /tmp if it exists in the repo
-    if not os.path.exists(DB_PATH) and os.path.exists("ReceiptTrac/receipttrac.db"):
-        import shutil
-        shutil.copy("ReceiptTrac/receipttrac.db", DB_PATH)
-else:
-    DB_PATH = "receipttrac.db"
-    UPLOAD_FOLDER = "static/uploads"
-
-ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "pdf"}
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16MB max
-
-# Ensure upload folder exists
 try:
-    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-except Exception:
-    pass
+    # Import services
+    from services import ReceiptOCR, QuebecTaxEngine, ReceiptStorage
+    from services.barcode_service import BarcodeService
+    from services.budget_service import BudgetService
+    from services.report_service import ReportService
+    from services.bank_import_service import BankImportService
 
-# Initialize services
-ocr_service = ReceiptOCR()
-tax_engine = QuebecTaxEngine()
-storage = ReceiptStorage(db_path=DB_PATH)
-barcode_service = BarcodeService()
-budget_service = BudgetService()
-report_service = ReportService(storage, tax_engine)
-bank_import_service = BankImportService()
+    # Configuration and Paths
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    IS_VERCEL = os.environ.get("VERCEL") == "1"
 
-# Global Constants
-FREE_LIMIT = 15
+    app = Flask(__name__, 
+                template_folder=os.path.join(BASE_DIR, "templates"),
+                static_folder=os.path.join(BASE_DIR, "static"))
+    app.secret_key = os.getenv("SECRET_KEY", "dev-secret-key")
+
+    # Detect Vercel environment
+    if IS_VERCEL:
+        # Vercel is read-only, we must use /tmp for database and uploads
+        DB_PATH = "/tmp/receipttrac.db"
+        UPLOAD_FOLDER = "/tmp/static/uploads"
+        # Copy existing DB if needed (unlikely to work if gitignored, but safe)
+        if not os.path.exists(DB_PATH) and os.path.exists(os.path.join(BASE_DIR, "receipttrac.db")):
+            import shutil
+            shutil.copy(os.path.join(BASE_DIR, "receipttrac.db"), DB_PATH)
+    else:
+        DB_PATH = os.path.join(BASE_DIR, "receipttrac.db")
+        UPLOAD_FOLDER = os.path.join(BASE_DIR, "static/uploads")
+
+    ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "pdf"}
+    app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+    app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
+
+    # Ensure upload folder exists
+    try:
+        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+    except Exception:
+        pass
+
+    # Initialize services
+    ocr_service = ReceiptOCR()
+    tax_engine = QuebecTaxEngine()
+    storage = ReceiptStorage(db_path=DB_PATH)
+    barcode_service = BarcodeService()
+    budget_service = BudgetService()
+    report_service = ReportService(storage, tax_engine)
+    bank_import_service = BankImportService()
+
+    # Global Constants
+    FREE_LIMIT = 15
+
+    # ... [rest of the app.py continues here, but I will wrap the routes too] ...
+
+except Exception as e:
+    @app.route("/")
+    @app.route("/health")
+    def deploy_error():
+        err = traceback.format_exc()
+        print(err)
+        return f"<h1>Deployment Error</h1><pre>{err}</pre>", 500
+
+# ... keep existing routes but ensure they are inside the try if possible, 
+# or just redefine them since they use the initialized services.
+# For now, I will just wrap the initialization as that is where 500s usually happen.
 
 # Language helper
 def get_text(lang, key):
