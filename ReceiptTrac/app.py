@@ -25,22 +25,45 @@ from services.budget_service import BudgetService
 from services.report_service import ReportService
 from services.bank_import_service import BankImportService
 
-app = Flask(__name__)
+# Configuration and Paths
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+IS_VERCEL = os.environ.get("VERCEL") == "1"
+
+app = Flask(__name__, 
+            template_folder=os.path.join(BASE_DIR, "templates"),
+            static_folder=os.path.join(BASE_DIR, "static"))
 app.secret_key = os.getenv("SECRET_KEY", "dev-secret-key")
 
+# Detect Vercel environment
+IS_VERCEL = os.environ.get("VERCEL") == "1"
+
 # Config
-UPLOAD_FOLDER = "static/uploads"
+if IS_VERCEL:
+    # Vercel is read-only, we must use /tmp for database and uploads if we want to avoid crashes
+    DB_PATH = "/tmp/receipttrac.db"
+    UPLOAD_FOLDER = "/tmp/static/uploads"
+    # Copy existing DB to /tmp if it exists in the repo
+    if not os.path.exists(DB_PATH) and os.path.exists("ReceiptTrac/receipttrac.db"):
+        import shutil
+        shutil.copy("ReceiptTrac/receipttrac.db", DB_PATH)
+else:
+    DB_PATH = "receipttrac.db"
+    UPLOAD_FOLDER = "static/uploads"
+
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "pdf"}
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16MB max
 
 # Ensure upload folder exists
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+try:
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+except Exception:
+    pass
 
 # Initialize services
 ocr_service = ReceiptOCR()
 tax_engine = QuebecTaxEngine()
-storage = ReceiptStorage()
+storage = ReceiptStorage(db_path=DB_PATH)
 barcode_service = BarcodeService()
 budget_service = BudgetService()
 report_service = ReportService(storage, tax_engine)
@@ -160,6 +183,17 @@ def get_text(lang, key):
 
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route("/health")
+def health_check():
+    """Health check endpoint for Vercel deployment"""
+    return jsonify({
+        "status": "online",
+        "vercel": IS_VERCEL,
+        "database": os.path.exists(DB_PATH),
+        "db_path": DB_PATH,
+        "env": os.environ.get("VERCEL_ENV", "unknown")
+    })
 
 # ============ AUTH ROUTES ============
 
